@@ -1,0 +1,26 @@
+name: Checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5
+        with:
+          go-version: stable
+      - name: Check shell contracts
+        run: |
+          for file in scripts/*.sh; do sh -n "$file"; done
+          ./scripts/test-artifacts.sh
+          go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7

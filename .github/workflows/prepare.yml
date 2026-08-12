@@ -1,0 +1,88 @@
+name: Prepare pinned llama.cpp sidecars
+
+# Manual by design. Pull requests and pushes only review the recipe; they never
+# spend runner time compiling native binaries.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: prepare-pinned-llama-sidecars
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: Publication preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Prove publication access
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test "$GITHUB_REF" = refs/heads/main
+          test "$(gh api "repos/$GITHUB_REPOSITORY" --jq '.permissions.push')" = true
+          ./scripts/artifacts.sh ensure-release
+
+  sidecar:
+    name: Prepare ${{ matrix.target }}
+    needs: preflight
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            runner: macos-14
+          - target: x86_64-unknown-linux-gnu
+            runner: ubuntu-latest
+          - target: aarch64-unknown-linux-gnu
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    env:
+      TARGET: ${{ matrix.target }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Restore prepared asset
+        id: prepared
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          ./scripts/artifacts.sh restore "$TARGET"
+          status=$?
+          set -e
+          case "$status" in
+            0) echo "ready=true" >> "$GITHUB_OUTPUT" ;;
+            2) echo "ready=false" >> "$GITHUB_OUTPUT" ;;
+            *) exit "$status" ;;
+          esac
+      - name: Build pinned sidecar
+        if: steps.prepared.outputs.ready != 'true'
+        run: ./scripts/build-sidecar.sh "$TARGET"
+      - name: Publish immutable asset
+        if: steps.prepared.outputs.ready != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./scripts/artifacts.sh publish "$TARGET" dist/assets
+
+  publish:
+    name: Publish complete sidecar release
+    needs: sidecar
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Verify and publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./scripts/artifacts.sh publish-release
