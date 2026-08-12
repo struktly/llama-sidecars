@@ -26,7 +26,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           test "$GITHUB_REF" = refs/heads/main
-          test "$(gh api "repos/$GITHUB_REPOSITORY" --jq '.permissions.push')" = true
           ./scripts/artifacts.sh ensure-release
 
   sidecar:
