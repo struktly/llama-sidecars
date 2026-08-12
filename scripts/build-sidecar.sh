@@ -102,7 +102,11 @@ if [ "$platform" = "darwin" ]; then
 	set -- "$@" -DCMAKE_OSX_ARCHITECTURES="$architecture" -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0
 fi
 cmake "$@"
-cmake --build "$build_dir" --config Release --target llama-server --parallel
+build_jobs=${LLAMA_BUILD_JOBS:-2}
+case "$build_jobs" in
+	''|0|*[!0-9]*) echo "build-sidecar: LLAMA_BUILD_JOBS must be a positive integer" >&2; exit 1 ;;
+esac
+cmake --build "$build_dir" --config Release --target llama-server --parallel "$build_jobs"
 
 candidate="$build_dir/bin/llama-server"
 [ -x "$candidate" ] || {

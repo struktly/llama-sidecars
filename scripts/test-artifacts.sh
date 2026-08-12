@@ -6,6 +6,9 @@ tmp=$(mktemp -d)
 cleanup() { rm -rf "$tmp"; }
 trap cleanup EXIT INT TERM
 
+grep -F -- "--parallel \"\$build_jobs\"" "$root/scripts/build-sidecar.sh" >/dev/null
+grep -F "build_jobs=\${LLAMA_BUILD_JOBS:-2}" "$root/scripts/build-sidecar.sh" >/dev/null
+
 target=aarch64-apple-darwin
 binary_dir="$tmp/bin"
 assets_dir="$tmp/assets"
