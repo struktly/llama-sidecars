@@ -117,8 +117,8 @@ ensure_release() {
 	[ -n "$release" ] || fail "invalid runtime/llama.version"
 	if gh release view "$release" -R "$repository" >/dev/null 2>&1; then
 		if [ -n "${GITHUB_SHA:-}" ]; then
-			release_revision=$(gh api "repos/$repository/commits/$release" --jq .sha) ||
-				fail "could not resolve existing release tag $release"
+			release_revision=$(gh release view "$release" -R "$repository" --json targetCommitish -q .targetCommitish) ||
+				fail "could not resolve existing release target $release"
 			[ "$release_revision" = "$GITHUB_SHA" ] || fail "release $release points to a different source revision; bump release= before rebuilding"
 		fi
 		return 0
