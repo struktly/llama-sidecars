@@ -16,6 +16,11 @@ and packaging scripts, tests, and a manually triggered release workflow.
 
 ## Release contract
 
+This repository versions its reproducible packaging contract with stable
+[Semantic Versioning](https://semver.org/). The upstream llama.cpp tag and
+commit remain separate pins; failed preparation attempts do not become release
+suffixes.
+
 Each release contains one archive and checksum manifest per target. The manifest
 records the exact upstream revision, build-recipe hash, target, source repository,
 and source commit. Consumers should additionally pin the archive SHA-256 in their

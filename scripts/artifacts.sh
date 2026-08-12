@@ -34,6 +34,8 @@ load_identity() {
 	revision=$(sed -n 's/^revision=//p' "$root/runtime/llama.version")
 	release=$(sed -n 's/^release=//p' "$root/runtime/llama.version")
 	[ -n "$tag" ] && [ -n "$revision" ] && [ -n "$release" ] || fail "invalid runtime/llama.version"
+	printf '%s\n' "$release" | grep -Eq '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' ||
+		fail "release must be a stable semantic version"
 	recipe=$(hash_file "$root/scripts/build-sidecar.sh")
 	identity="revision=$revision target=$target recipe=$recipe"
 	binary="llama-server-$target"
@@ -123,8 +125,8 @@ ensure_release() {
 		fi
 		return 0
 	fi
-	gh release create "$release" -R "$repository" --draft --prerelease \
-		--target "${GITHUB_SHA:-main}" --title "Pinned llama.cpp $release" \
+	gh release create "$release" -R "$repository" --draft \
+		--target "${GITHUB_SHA:-main}" --title "llama.cpp sidecars $release" \
 		--notes "Immutable llama.cpp server builds. See the attached checksum manifests for source and build identity."
 }
 
@@ -183,7 +185,7 @@ publish_release() {
 		verify_files "$target" "$tmp"
 		rm -rf "$tmp"
 	done
-	gh release edit "$release" -R "$repository" --draft=false --prerelease
+	gh release edit "$release" -R "$repository" --draft=false --prerelease=false --latest
 }
 
 case "${1:-}" in
