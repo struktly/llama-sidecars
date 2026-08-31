@@ -8,6 +8,8 @@ trap cleanup EXIT INT TERM
 
 grep -F -- "--parallel \"\$build_jobs\"" "$root/scripts/build-sidecar.sh" >/dev/null
 grep -F "build_jobs=\${LLAMA_BUILD_JOBS:-2}" "$root/scripts/build-sidecar.sh" >/dev/null
+grep -F -- "-DLLAMA_BUILD_IS_DEV=OFF" "$root/scripts/build-sidecar.sh" >/dev/null
+grep -F -- 'grep -F "version: ${tag#v}"' "$root/scripts/build-sidecar.sh" >/dev/null
 release=$(sed -n 's/^release=//p' "$root/runtime/llama.version")
 printf '%s\n' "$release" | grep -Eq '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
 
