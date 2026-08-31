@@ -84,6 +84,7 @@ set -- \
 	-S "$source_dir" \
 	-B "$build_dir" \
 	-DCMAKE_BUILD_TYPE=Release \
+	-DLLAMA_BUILD_IS_DEV=OFF \
 	-DBUILD_SHARED_LIBS=OFF \
 	-DGGML_NATIVE=OFF \
 	-DGGML_BLAS=OFF \
@@ -116,6 +117,16 @@ candidate="$build_dir/bin/llama-server"
 cp "$candidate" "$output"
 cp "$source_dir/LICENSE" "$license"
 chmod 0755 "$output"
+
+reported_version=$("$output" --version 2>&1) || {
+	echo "build-sidecar: built executable did not report its version" >&2
+	exit 1
+}
+printf '%s\n' "$reported_version" | grep -F "version: ${tag#v}" >/dev/null || {
+	echo "build-sidecar: built executable does not report pinned stable version ${tag#v}" >&2
+	printf '%s\n' "$reported_version" >&2
+	exit 1
+}
 
 if [ "$platform" = "darwin" ]; then
 	if otool -L "$output" | tail -n +2 | grep -E '(@rpath|/opt/|/usr/local/)' >/dev/null; then
