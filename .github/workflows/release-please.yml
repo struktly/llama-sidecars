@@ -1,0 +1,50 @@
+name: Release Please
+
+# Reads conventional commits (feat:/fix:/chore: etc., already required in this
+# repo) to decide the release= bump in runtime/llama.version, accumulates them
+# into a standing release PR with a generated changelog, and creates the tag +
+# GitHub Release itself once that PR is merged (as a draft — see
+# release-please-config.json). Merging it never runs "Prepare pinned llama.cpp
+# sidecars": that workflow stays workflow_dispatch-only, so a merge here still
+# never starts a native build. A human decides when to promote the draft
+# release by running that workflow, exactly as before this was added; see
+# README.md's release contract.
+#
+# The token must come from an app/PAT identity, not the default GITHUB_TOKEN:
+# GitHub does not let a GITHUB_TOKEN-authenticated action trigger another
+# workflow's push/release event (anti-recursion rule), which would mean the
+# tag release-please creates would never trigger anything depending on it.
+# RELEASE_APP_ID / RELEASE_APP_PRIVATE_KEY authenticate as the same
+# struktly-bot GitHub App struktly-platform uses (managed via
+# struktly-infrastructure/tofu/github-platform) and mint a short-lived
+# installation token here, so there is no long-lived PAT to rotate.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    name: Update or publish release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Create release app token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+        id: app-token
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+      - name: Update release pull request or publish release
+        uses: googleapis/release-please-action@8b8fd2cc23b2e18957157a9d923d75aa0c6f6ad5 # v4
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          target-branch: main

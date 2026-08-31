@@ -26,9 +26,14 @@ records the exact upstream revision, build-recipe hash, target, source repositor
 and source commit. Consumers should additionally pin the archive SHA-256 in their
 own source tree.
 
-Preparing a release is manual by design. Update `runtime/llama.version`, merge
-the reviewed change, then run **Prepare pinned llama.cpp sidecars** from `main`.
-A normal push or pull request never starts a native build.
+[release-please](https://github.com/googleapis/release-please) proposes the
+`release=` bump in `runtime/llama.version` as a standing pull request, built
+from conventional commit messages, and tags + drafts a GitHub Release once
+that PR is merged. Preparing the actual binaries stays manual by design:
+merging the release-please PR never runs **Prepare pinned llama.cpp
+sidecars** — dispatch that workflow from `main` yourself when you want to
+promote the draft release. A normal push or pull request never starts a
+native build.
 
 ## Local checks
 
