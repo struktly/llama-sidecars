@@ -18,8 +18,19 @@ name: Release Please
 # struktly-bot GitHub App struktly-platform uses (managed via
 # struktly-infrastructure/tofu/github-platform) and mint a short-lived
 # installation token here, so there is no long-lived PAT to rotate.
+#
+# Tidebot merges as github-actions[bot], and GitHub does not let a
+# GITHUB_TOKEN-authenticated push trigger another workflow's `push` event. A
+# Tidebot-merged PR therefore never reached this workflow, and the release PR
+# only moved on the next human push to main. Running again after Tidebot's
+# own push run on main closes that gap; release-please is idempotent and
+# no-ops when there is nothing to release.
 on:
   push:
+    branches: [main]
+  workflow_run:
+    workflows: [Tidebot]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 
@@ -34,6 +45,11 @@ permissions:
 jobs:
   release-please:
     name: Update or publish release
+    # Tidebot runs on main for pushes and for every comment on the default
+    # branch; only the push run means main moved.
+    if: >-
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.event == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -44,7 +60,7 @@ jobs:
           app-id: ${{ secrets.RELEASE_APP_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
       - name: Update release pull request or publish release
-        uses: googleapis/release-please-action@8b8fd2cc23b2e18957157a9d923d75aa0c6f6ad5 # v4
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         with:
           token: ${{ steps.app-token.outputs.token }}
           target-branch: main
