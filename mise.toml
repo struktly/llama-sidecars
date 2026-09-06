@@ -1,0 +1,9 @@
+# Tool pins for this repository. CI installs from here through mise-action,
+# so a version is stated once. The checks are shell scripts plus actionlint;
+# no Go toolchain is needed.
+[tools]
+actionlint = "1.7.7"
+
+[tasks.check]
+description = "Shell contracts and workflow lint — what CI runs."
+run = ["for file in scripts/*.sh; do sh -n \"$file\"; done", "./scripts/test-artifacts.sh", "actionlint"]
