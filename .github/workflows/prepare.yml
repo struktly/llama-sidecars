@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   # Serialize retries of one reviewed recipe without letting a cancelled older
@@ -16,6 +16,8 @@ concurrency:
 
 jobs:
   preflight:
+    permissions:
+      contents: write
     name: Publication preflight
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -31,6 +33,8 @@ jobs:
           ./scripts/artifacts.sh ensure-release
 
   sidecar:
+    permissions:
+      contents: write
     name: Prepare ${{ matrix.target }}
     needs: preflight
     strategy:
@@ -75,6 +79,8 @@ jobs:
         run: ./scripts/artifacts.sh publish "$TARGET" dist/assets
 
   publish:
+    permissions:
+      contents: write
     name: Publish complete sidecar release
     needs: sidecar
     runs-on: ubuntu-latest
