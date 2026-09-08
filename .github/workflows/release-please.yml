@@ -59,8 +59,28 @@ jobs:
         with:
           app-id: ${{ secrets.RELEASE_APP_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
-      - name: Update release pull request or publish release
+      - name: Create the release draft for a merged release PR
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         with:
           token: ${{ steps.app-token.outputs.token }}
           target-branch: main
+          skip-github-pull-request: true
+      # A draft has no tagCommit until publication. Release Please cannot
+      # use it as a history boundary, and would count old commits again.
+      - name: Check whether the current version is awaiting publication
+        id: pending-release
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          version=$(gh api "repos/$GH_REPO/contents/.release-please-manifest.json?ref=main" --jq .content | base64 --decode | jq -er '.["."]')
+          pending=$(gh api "repos/$GH_REPO/releases" --paginate --slurp | jq -r --arg tag "v$version" 'any(.[][]; .draft and .tag_name == $tag)')
+          echo "pending=$pending" >> "$GITHUB_OUTPUT"
+      - name: Update the next release pull request after publication
+        if: steps.pending-release.outputs.pending == 'false'
+        uses: googleapis/release-please-action@8b8fd2cc23b2e18957157a9d923d75aa0c6f6ad5 # v4
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          target-branch: main
+          skip-github-release: true
