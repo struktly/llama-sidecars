@@ -33,7 +33,9 @@ that PR is merged. Preparing the actual binaries stays manual by design:
 merging the release-please PR never runs **Prepare pinned llama.cpp
 sidecars** — dispatch that workflow from `main` yourself when you want to
 promote the draft release. A normal push or pull request never starts a
-native build.
+native build. An empty draft left at an earlier commit is recreated at the
+commit being built; a published release, or a draft already holding
+binaries, is never rebuilt — bump `release=` instead.
 
 ## Local checks
 

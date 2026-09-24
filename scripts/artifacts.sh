@@ -118,12 +118,20 @@ ensure_release() {
 	release=$(sed -n 's/^release=//p' "$root/runtime/llama.version")
 	[ -n "$release" ] || fail "invalid runtime/llama.version"
 	if gh release view "$release" -R "$repository" >/dev/null 2>&1; then
-		if [ -n "${GITHUB_SHA:-}" ]; then
-			release_revision=$(gh release view "$release" -R "$repository" --json targetCommitish -q .targetCommitish) ||
-				fail "could not resolve existing release target $release"
-			[ "$release_revision" = "$GITHUB_SHA" ] || fail "release $release points to a different source revision; bump release= before rebuilding"
-		fi
-		return 0
+		[ -n "${GITHUB_SHA:-}" ] || return 0
+		state=$(gh release view "$release" -R "$repository" --json targetCommitish,isDraft,assets \
+			-q '[.targetCommitish, (.isDraft | tostring), (.assets | length | tostring)] | join(" ")') ||
+			fail "could not resolve existing release target $release"
+		set -- $state
+		[ "$1" = "$GITHUB_SHA" ] && return 0
+		# A published release, or a draft already holding binaries, is immutable:
+		# the pin moved, so bump release=. An empty draft is release-please's
+		# placeholder from an earlier commit; it is recreated at this one, so a
+		# stale draft cannot wedge the pipeline until someone deletes it by hand.
+		[ "$2" = true ] && [ "$3" = 0 ] ||
+			fail "release $release points to a different source revision; bump release= before rebuilding"
+		printf 'artifacts: empty draft %s pointed at %s; recreating it at %s\n' "$release" "$1" "$GITHUB_SHA" >&2
+		gh release delete "$release" -R "$repository" --yes || fail "could not remove the stale draft $release"
 	fi
 	gh release create "$release" -R "$repository" --draft \
 		--target "${GITHUB_SHA:-main}" --title "llama.cpp sidecars $release" \

@@ -36,9 +36,11 @@ cat > "$tmp/bin/gh" <<'EOF'
 set -eu
 case "$*" in
   "release view $SIDECAR_TEST_RELEASE -R $SIDECAR_TEST_REPOSITORY") exit 0 ;;
-  "release view $SIDECAR_TEST_RELEASE -R $SIDECAR_TEST_REPOSITORY --json targetCommitish -q .targetCommitish")
-    printf '%s\n' "$SIDECAR_TEST_REVISION"
+  "release view $SIDECAR_TEST_RELEASE -R $SIDECAR_TEST_REPOSITORY --json targetCommitish,isDraft,assets -q "*)
+    printf '%s %s %s\n' "$SIDECAR_TEST_REVISION" "${SIDECAR_TEST_DRAFT:-true}" "${SIDECAR_TEST_ASSETS:-0}"
     ;;
+  "release delete $SIDECAR_TEST_RELEASE -R $SIDECAR_TEST_REPOSITORY --yes") echo "delete" >> "$SIDECAR_TEST_LOG" ;;
+  "release create $SIDECAR_TEST_RELEASE -R $SIDECAR_TEST_REPOSITORY --draft --target "*) echo "create $*" >> "$SIDECAR_TEST_LOG" ;;
   *) exit 1 ;;
 esac
 EOF
@@ -49,9 +51,24 @@ export SIDECAR_TEST_REPOSITORY=struktly/llama-sidecars
 export SIDECAR_TEST_REVISION=1111111111111111111111111111111111111111
 PATH="$tmp/bin:$PATH"
 export PATH
+export SIDECAR_TEST_LOG="$tmp/gh.log"
+: > "$SIDECAR_TEST_LOG"
 GITHUB_SHA="$SIDECAR_TEST_REVISION" "$root/scripts/artifacts.sh" ensure-release
-if GITHUB_SHA=2222222222222222222222222222222222222222 "$root/scripts/artifacts.sh" ensure-release >/dev/null 2>&1; then
-	echo "test-artifacts: an existing draft release accepted a different source revision" >&2
+[ ! -s "$SIDECAR_TEST_LOG" ] || { echo "test-artifacts: a draft at the current revision was touched" >&2; exit 1; }
+# An empty draft from an earlier commit is recreated at this one.
+other=2222222222222222222222222222222222222222
+GITHUB_SHA="$other" "$root/scripts/artifacts.sh" ensure-release 2>/dev/null
+grep -qx "delete" "$SIDECAR_TEST_LOG" && grep -q "create .* --target $other " "$SIDECAR_TEST_LOG" || {
+	echo "test-artifacts: a stale empty draft was not recreated at the current revision" >&2
+	exit 1
+}
+# A published release, or a draft holding binaries, stays immutable.
+if SIDECAR_TEST_DRAFT=false GITHUB_SHA="$other" "$root/scripts/artifacts.sh" ensure-release >/dev/null 2>&1; then
+	echo "test-artifacts: a published release accepted a different source revision" >&2
+	exit 1
+fi
+if SIDECAR_TEST_ASSETS=3 GITHUB_SHA="$other" "$root/scripts/artifacts.sh" ensure-release >/dev/null 2>&1; then
+	echo "test-artifacts: a draft holding binaries accepted a different source revision" >&2
 	exit 1
 fi
 
