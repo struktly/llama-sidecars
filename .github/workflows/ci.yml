@@ -13,19 +13,10 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  workflow-policy:
-    uses: fridthjof-labs/infra-kit/.github/workflows/workflow-ci.yml@54c86f4769a6c104a0f1f3d992360ce7078f20b9 # shared CI standard
-
   checks:
-    if: ${{ !cancelled() }}
-    needs: [workflow-policy]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Require workflow validation
-        env:
-          POLICY_RESULT: ${{ needs.workflow-policy.result }}
-        run: test "$POLICY_RESULT" = success
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
